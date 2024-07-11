@@ -11,8 +11,7 @@ library(ggplot2)
 library(tidyverse)
 library(ggpubr)
 
-source("~/GitRepos/bayesian_analysis_Uganda/scripts/merge_alleles.R")
-source("~/GitRepos/bayesian_analysis_Uganda/scripts/define_marker_bin_sizes.R")
+source("~/GitRepos/STPHrepos/genotyping_comparison_Uganda/analysis_scripts/define_alleles_markers/combine_alleles.R")
 
 # Function for processing the data for plotting
 process_plot_data = function(plot_data_df) {
@@ -24,7 +23,8 @@ process_plot_data = function(plot_data_df) {
   
   # Process the data frame, define labels
   plot_data_df$Haplotype = factor(plot_data_df$Haplotype, levels = sort(plot_data_df$Haplotype))
-  plot_data_df$Label = paste0("n = ", plot_data_df$Amount, "\n(", round(plot_data_df$Amount/sum(plot_data_df$Amount), digits = 2)*100,"%)")
+  # plot_data_df$Label = paste0("n = ", plot_data_df$Amount, "\n(", round(plot_data_df$Amount/sum(plot_data_df$Amount), digits = 2)*100,"%)")
+  plot_data_df$Label = paste0(round(plot_data_df$Amount/sum(plot_data_df$Amount), digits = 2)*100, "%")
   
   plot_data_df = plot_data_df[order(plot_data_df$Amount, decreasing = TRUE), ]
   
@@ -79,16 +79,26 @@ plot_pie_ggplot = function(data_df, color_marker, marker_name) {
   df2 <- plot_data_df %>% 
     mutate(csum = rev(cumsum(rev(Amount))), 
            pos = Amount/2 + lead(csum, 1),
-           pos = if_else(is.na(pos), Amount/2, pos))
+           pos = if_else(is.na(pos), Amount/2, pos),
+           pos_inside = pos - Amount/4,
+           empty_label = "")
+  
+  # Add angle and hjust for better label positioning
+  plot_data_df <- plot_data_df %>%
+    mutate(mid = cumsum(Amount) - Amount / 2,
+           angle = 0, # - 360 * (mid / sum(Amount)),
+           hjust = ifelse(angle < -90, 0.1, 0))
+  # angle = ifelse(angle < -90, angle + 180, angle))
   
   # plot_data_df <- plot_data_df[order(plot_data_df$Amount), ]
   
   pie_chart = ggplot(plot_data_df, aes(x = "", y = Amount, fill = fct_inorder(as.character(Amount)))) +
-    geom_col(width = 1, color = "black") +
+    geom_col(width = 1, color = "white") +
     coord_polar(theta = "y") +
     guides(fill = guide_legend(title = "Group")) +
     scale_fill_manual(values = rep(color_marker, 100)) +
-    scale_y_continuous(breaks = df2$pos, labels = plot_data_df$Label) +
+    scale_y_continuous(breaks = df2$pos, label = df2$empty_label) + #plot_data_df$Label
+    geom_text(aes(y = df2$pos, label = Label), size = 7, color = "black", fontface = "bold") +
     theme(axis.ticks = element_blank(),
           axis.title = element_blank(),
           axis.text = element_text(size = 17),  
@@ -107,6 +117,9 @@ list_data = list.files(folder_results, full.names = TRUE)
 for (f in list_data) {
   marker_name = str_extract(f, "(?<=MSP ).*?(?=_)")
   data_alleles = read_excel(f, sheet = "RecurrentInfections")
+  # Select only day 0:
+  data_alleles = data_alleles %>% filter(Day == 0)
+  
   data_alleles_long = data_alleles %>% pivot_longer(-c(PatientID, Day, Site), 
                                                     names_to = "allele_name", 
                                                     values_to = "allele_length")
@@ -129,24 +142,25 @@ list_markers = unique(final_table$allele_id)
 merged_allele_table = NULL
 for (marker_name in unique(list_markers)) {
   marker_drug_tab = final_table %>% 
-                      filter(allele_id == marker_name)
-    allele_vector = marker_drug_tab %>%
-                      select(allele_length)
-    bin_size = marker_bins %>% 
-                filter(marker_id == marker_name) %>% 
-                select(bin_size)
-    merged_alleles = merge_alleles(allele_vector = allele_vector$allele_length, 
-                                   bin_size = bin_size$bin_size)
-    
-    marker_drug_tab$true_alleles = sapply(marker_drug_tab$allele_length, 
-                                         function(x) merged_alleles[which.min(abs(merged_alleles - x))])
-    marker_drug_tab$allele_length = marker_drug_tab$allele_name = NULL
-    merged_allele_table = rbind.data.frame(merged_allele_table, marker_drug_tab)
+    filter(allele_id == marker_name)
+  allele_vector = marker_drug_tab %>%
+    select(allele_length)
+  bin_size = marker_bins %>% 
+    filter(marker_id == marker_name) %>% 
+    select(bin_size)
+  merged_alleles = merge_alleles(allele_vector = allele_vector$allele_length, 
+                                 bin_size = bin_size$bin_size)
+  
+  marker_drug_tab$true_alleles = sapply(marker_drug_tab$allele_length, 
+                                        function(x) merged_alleles[which.min(abs(merged_alleles - x))])
+  marker_drug_tab$allele_length = marker_drug_tab$allele_name = NULL
+  merged_allele_table = rbind.data.frame(merged_allele_table, marker_drug_tab)
 }
 
 merged_allele_table = unique(merged_allele_table)
 n_patients = length(unique(merged_allele_table$PatientID))
 
+# Figure of diversity across all sites and drug arms
 final_table_plot = merged_allele_table %>% 
   group_by(allele_id, true_alleles) %>% 
   summarize(Amount = n())
@@ -155,11 +169,12 @@ final_table_plot$Frequency = final_table_plot$Amount/n_patients
 
 colors_amp_seq = c("#fc8d59", "#fc8d59", "#fc8d59", 
                    "#F692EF","#F692EF", "#74a9cf", 
-                   "grey", "#ef3b2c", "#807dba",
-                   "#f768a1", "#fd8d3c", "#41b6c4", "#CD5C5C")
+                   "#ef3b2c", "#807dba", "#f768a1", 
+                   "grey", "grey", "grey",
+                   "#82C0FF", "#41b6c4", "#CD5C5C")
 list_markers = unique(final_table_plot$allele_id)
-list_markers = c("K1", "MAD20", "R033","3D7", "FC27", "GLURP", "NULL",
-                 "313", "383", "POLY a", "TA1", "TA109", "PFPK2", "2490")
+list_markers = c("K1", "MAD20", "R033","3D7", "FC27", "GLURP", 
+                 "313", "383", "POLY a", "NULL", "NULL", "NULL", "TA1", "PFPK2", "TA109", "2490")
 p_array = vector('list', length(list_markers))
 
 for (i in 1:length(list_markers)) {
@@ -174,15 +189,108 @@ for (i in 1:length(list_markers)) {
   } else {
     p_array[[i]] = NULL
   }
- 
+  
 }
 
-figure_A = ggarrange(plotlist = p_array, nrow = 2, ncol = 7)
+figure_A = ggarrange(plotlist = p_array, nrow = 3, ncol = 6)
 
-ggsave("~/genotyping/analysis_Uganda/pies_diversity_alex_v2.pdf",
-       plot = figure_A,  width = 20, height = 12)
+# ggsave("~/genotyping/analysis_Uganda/pie_charts_diversity.pdf",
+#        plot = figure_A,  width = 22, height = 10)
 
+# Figure of diversity for each site and drug arm
+final_table_plot_drug_site = merged_allele_table %>% 
+  group_by(allele_id, drug, Site, true_alleles) %>% 
+  summarize(Amount = n())
 
+final_table_plot_pat = unique(merged_allele_table %>% select(PatientID, drug, Site))
+final_table_plot_pat = final_table_plot_pat %>% group_by(Site, drug) %>%
+                        summarise(patient_count = n()) 
+final_table_plot_drug_site = merge(final_table_plot_drug_site, final_table_plot_pat, by = c("Site", "drug"))
+final_table_plot_drug_site = final_table_plot_drug_site %>% mutate(Frequency = Amount/patient_count)
+
+colors_amp_seq = c("#fc8d59", "#fc8d59", "#fc8d59", 
+                   "#F692EF","#F692EF", "#74a9cf", 
+                   "#ef3b2c", "#807dba", "#f768a1", 
+                   "grey", "grey", "grey",
+                   "#82C0FF", "#41b6c4", "#CD5C5C")
+list_markers = unique(final_table_plot_drug_site$allele_id)
+list_markers = c("K1", "MAD20", "R033","3D7", "FC27", "GLURP", 
+                 "313", "383", "POLY a", "NULL", "NULL", "NULL", "TA1", "PFPK2", "TA109", "2490")
+
+for (drug_name in unique(final_table_plot_drug_site$drug)) {
+  for (site in unique(final_table_plot_drug_site$Site)) {
+    p_array = NULL
+    p_array = vector('list', length(list_markers))
+    for (i in 1:length(list_markers)) {
+      marker_name = list_markers[i]
+      print(marker_name)
+      final_table_plot1 = final_table_plot_drug_site %>% filter(allele_id == marker_name &
+                                                        drug == drug_name & Site == site) 
+      final_table_plot1 = final_table_plot1 %>% ungroup() %>% dplyr::select(true_alleles, Amount, Frequency)
+      final_table_plot1 = distinct(final_table_plot1)
+      
+      if (marker_name != "NULL") {
+        p_array[[i]] = plot_pie_ggplot(final_table_plot1, colors_amp_seq[i], marker_name)
+      } else {
+        p_array[[i]] = NULL
+      }
+      
+    }
+    
+    figure_A = ggarrange(plotlist = p_array, nrow = 3, ncol = 6)
+    figure_A = annotate_figure(figure_A, top = text_grob(paste0("Site ", site, ", ", drug_name, " arm"), 
+                                          color = "black", face = "bold", size = 30))
+    
+    ggsave(paste0("~/genotyping/analysis_Uganda/pie_charts_diversity_", site, "_", drug_name, ".pdf"),
+           plot = figure_A,  width = 22, height = 10)
+  }
+}
+
+# Figure of diversity for each site 
+final_table_plot_site = merged_allele_table %>% 
+  group_by(allele_id, Site, true_alleles) %>% 
+  summarize(Amount = n())
+
+final_table_plot_pat = unique(merged_allele_table %>% select(PatientID, Site))
+final_table_plot_pat = final_table_plot_pat %>% group_by(Site) %>%
+                        summarise(patient_count = n()) 
+final_table_plot_site = merge(final_table_plot_site, final_table_plot_pat, by = c("Site"))
+final_table_plot_site = final_table_plot_site %>% mutate(Frequency = Amount/patient_count)
+
+colors_amp_seq = c("#fc8d59", "#fc8d59", "#fc8d59", 
+                   "#F692EF","#F692EF", "#74a9cf", 
+                   "#ef3b2c", "#807dba", "#f768a1", 
+                   "grey", "grey", "grey",
+                   "#82C0FF", "#41b6c4", "#CD5C5C")
+list_markers = unique(final_table_plot_drug_site$allele_id)
+list_markers = c("K1", "MAD20", "R033","3D7", "FC27", "GLURP", 
+                 "313", "383", "POLY a", "NULL", "NULL", "NULL", "TA1", "PFPK2", "TA109", "2490")
+
+for (site in unique(final_table_plot_site$Site)) {
+  p_array = NULL
+  p_array = vector('list', length(list_markers))
+  for (i in 1:length(list_markers)) {
+    marker_name = list_markers[i]
+    print(marker_name)
+    final_table_plot1 = final_table_plot_site %>% filter(allele_id == marker_name & Site == site) 
+    final_table_plot1 = final_table_plot1 %>% ungroup() %>% dplyr::select(true_alleles, Amount, Frequency)
+    final_table_plot1 = distinct(final_table_plot1)
+    
+    if (marker_name != "NULL") {
+      p_array[[i]] = plot_pie_ggplot(final_table_plot1, colors_amp_seq[i], marker_name)
+    } else {
+      p_array[[i]] = NULL
+    }
+    
+  }
+  
+  figure_A = ggarrange(plotlist = p_array, nrow = 3, ncol = 6)
+  figure_A = annotate_figure(figure_A, top = text_grob(paste0("Site ", site), 
+                                                       color = "black", face = "bold", size = 30))
+  
+  ggsave(paste0("~/genotyping/analysis_Uganda/pie_charts_diversity_", site, ".pdf"),
+         plot = figure_A,  width = 22, height = 10)
+}
 
 
 
