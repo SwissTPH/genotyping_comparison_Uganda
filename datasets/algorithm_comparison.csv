@@ -1,0 +1,65 @@
+Marker;Algorithm;Drug arm;N_recr
+Poly a;2/3;AL;11
+PfPK2;2/3;AL;14
+TA1;2/3;AL;10
+TA109;2/3;AL;12
+2490;2/3;AL;14
+313;2/3;AL;12
+383;2/3;AL;12
+glurp;2/3;AL;11
+Poly a;2/3;DP;8
+PfPK2;2/3;DP;9
+TA1;2/3;DP;9
+TA109;2/3;DP;9
+2490;2/3;DP;8
+313;2/3;DP;7
+383;2/3;DP;8
+glurp;2/3;DP;10
+Poly a;3/3;AL;2
+PfPK2;3/3;AL;3
+TA1;3/3;AL;4
+TA109;3/3;AL;4
+2490;3/3;AL;7
+313;3/3;AL;4
+383;3/3;AL;2
+glurp;3/3;AL;5
+Poly a;3/3;DP;4
+PfPK2;3/3;DP;4
+TA1;3/3;DP;2
+TA109;3/3;DP;2
+2490;3/3;DP;3
+313;3/3;DP;3
+383;3/3;DP;4
+glurp;3/3;DP;4
+Poly a;Bayesian 0.7;AL;13
+PfPK2;Bayesian 0.7;AL;13
+TA1;Bayesian 0.7;AL;14
+TA109;Bayesian 0.7;AL;12
+2490;Bayesian 0.7;AL;17
+313;Bayesian 0.7;AL;17
+383;Bayesian 0.7;AL;13
+glurp;Bayesian 0.7;AL;15
+Poly a;Bayesian 0.7;DP;6
+PfPK2;Bayesian 0.7;DP;10
+TA1;Bayesian 0.7;DP;6
+TA109;Bayesian 0.7;DP;9
+2490;Bayesian 0.7;DP;9
+313;Bayesian 0.7;DP;9
+383;Bayesian 0.7;DP;12
+glurp;Bayesian 0.7;DP;8
+Poly a;Bayesian 0.8;AL;7
+PfPK2;Bayesian 0.8;AL;8
+TA1;Bayesian 0.8;AL;7
+TA109;Bayesian 0.8;AL;6
+2490;Bayesian 0.8;AL;11
+313;Bayesian 0.8;AL;10
+383;Bayesian 0.8;AL;5
+glurp;Bayesian 0.8;AL;7
+Poly a;Bayesian 0.8;DP;4
+PfPK2;Bayesian 0.8;DP;6
+TA1;Bayesian 0.8;DP;5
+TA109;Bayesian 0.8;DP;7
+2490;Bayesian 0.8;DP;5
+313;Bayesian 0.8;DP;5
+383;Bayesian 0.8;DP;5
+glurp;Bayesian 0.8;DP;6
